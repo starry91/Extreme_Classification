@@ -64,8 +64,8 @@ def get_data(path):
     X_data = df_data[X_cols]
     Y_data = df_data[Y_cols]
     for col in Y_data.columns:
-        Y_data[col] = Y_data[col].apply(lambda x: x.decode("utf-8"))
-        Y_data[col] = Y_data[col].astype(int)
+        Y_data[col] = Y_data[col].apply(lambda x: int(x.decode("utf-8")))
+        # Y_data[col] = Y_data[col].astype(int)
     return X_data.values, Y_data.values
 
 
@@ -80,12 +80,39 @@ def load_data(path, isTxt=False):
     return X_train, Y_train
 
 
+def split_train_val(X, tfidf, Y):
+    indices = np.random.permutation(X.shape[0])
+    val_size = int(0.2*X.shape[0])
+    val_idx, test_idx = indices[:val_size], indices[val_size:]
+    X_val = X[val_idx]
+    tfidf_val = tfidf[val_idx]
+    Y_val = Y[val_idx]
+    X_test = X[test_idx]
+    tfidf_test = tfidf[test_idx]
+    Y_test = Y[test_idx]
+    return X_val, tfidf_val, Y_val, X_test, tfidf_test, Y_test
+
+
+def prepare_tensors_from_data(X_train, Y_train):
+    X_data_new = np.array([list(range(X_train.shape[1]))]*X_train.shape[0])
+    X_TfIdftensor = torch.from_numpy(X_train[:, :, None])
+    X_train = torch.from_numpy(X_data_new)
+    Y_train = torch.from_numpy(Y_train)
+    Y_train = Y_train.type('torch.FloatTensor')
+    X_TfIdftensor = X_TfIdftensor.type('torch.FloatTensor')
+    return X_train, X_TfIdftensor, Y_train
+
+
 def make_tensor(data_xy):
     """converts the input to numpy arrays"""
     data_x, data_y = data_xy
     data_x = torch.tensor(data_x)
     data_y = np.asarray(data_y, dtype='int32')
     return data_x, data_y
+
+
+def to_numpy(tensor):
+    return tensor.cpu().numpy()
 
 
 def load_pickle(f):

@@ -55,28 +55,28 @@ class Solver():
         self.logger.info(self.model)
         self.logger.info(self.optimizer)
 
-    def fit(self, X_train, Y_train, vx1=None, vx2=None, tx1=None, tx2=None, checkpoint_path=''):
+    def fit(self, X_train, tfidf, Y_train,
+            v_x=None, v_tfidf=None, v_y=None,
+            t_x=None, t_tfidf=None, t_y=None,
+            checkpoint=''):
         """
         x1, x2 are the vectors needs to be make correlated
         dim=[batch_size, feats]
         """
-        checkpoint = checkpoint_path+"/checkpoint.model"
-        X_data_new = np.array([list(range(X_train.shape[1]))]*X_train.shape[0])
-        X_TfIdftensor = torch.from_numpy(X_train[:, :, None])
-        X_train = torch.from_numpy(X_data_new)
-        Y_train = torch.from_numpy(Y_train)
         X_train = X_train.to(self.device)
-        Y_train = Y_train.type('torch.FloatTensor').to(self.device)
-        X_TfIdftensor = X_TfIdftensor.type('torch.FloatTensor').to(self.device)
+        Y_train = Y_train.to(self.device)
+        tfidf = tfidf.to(self.device)
         data_size = X_train.size(0)
 
-        if vx1 is not None and vx2 is not None:
-            best_val_loss = 0
-            vx1.to(self.device)
-            vx2.to(self.device)
-        if tx1 is not None and tx2 is not None:
-            tx1.to(self.device)
-            tx2.to(self.device)
+        if v_x is not None and v_y is not None:
+            best_val_loss = None
+            v_x.to(self.device)
+            v_tfidf.to(self.device)
+            v_y.to(self.device)
+        if t_x is not None and t_y is not None:
+            t_x.to(self.device)
+            t_tfidf.to(self.device)
+            t_y.to(self.device)
 
         train_losses = []
         for epoch in range(self.epoch_num):
@@ -87,7 +87,7 @@ class Solver():
 
             for batch_idx in batch_idxs:
                 self.optimizer.zero_grad()
-                batch_tfidf = X_TfIdftensor[batch_idx]
+                batch_tfidf = tfidf[batch_idx]
                 batch_X_train = X_train[batch_idx, :]
                 batch_Y_train = Y_train[batch_idx, :]
                 x_hidden, y_hidden, y_predicted = self.model(
@@ -100,16 +100,23 @@ class Solver():
             train_loss = np.mean(train_losses)
 
             info_string = "Epoch {:d}/{:d} - time: {:.2f} - training_loss: {:.4f}"
-            if vx1 is not None and vx2 is not None:
+            if v_x is not None and v_y is not None:
                 with torch.no_grad():
                     self.model.eval()
-                    val_loss = self.test(vx1, vx2)
+                    val_loss = self.test(v_x, v_tfidf, v_y)
                     info_string += " - val_loss: {:.4f}".format(val_loss)
-                    if val_loss < best_val_loss:
+                    if(best_val_loss is None):
+                        best_val_loss = val_loss
+                    elif val_loss < best_val_loss:
                         self.logger.info(
                             "Epoch {:d}: val_loss improved from {:.4f} to {:.4f}, saving model to {}".format(epoch + 1, best_val_loss, val_loss, checkpoint))
                         best_val_loss = val_loss
-                        torch.save(self.model.state_dict(), checkpoint)
+                        torch.save({
+                            'epoch': epoch,
+                            'model_state_dict': self.model.state_dict(),
+                            'optimizer_state_dict': self.optimizer.state_dict(),
+                            'loss': loss,
+                        }, checkpoint)
                     else:
                         self.logger.info("Epoch {:d}: val_loss did not improve from {:.4f}".format(
                             epoch + 1, best_val_loss))
@@ -130,19 +137,38 @@ class Solver():
         plt.close(fig)
         checkpoint_ = torch.load(checkpoint)['model_state_dict']
         self.model.load_state_dict(checkpoint_)
-        if vx1 is not None and vx2 is not None:
-            loss = self.test(vx1, vx2)
+        if v_x is not None and v_y is not None:
+            loss = self.test(v_x, v_tfidf, v_y)
             self.logger.info("loss on validation data: {:.4f}".format(loss))
 
-        if tx1 is not None and tx2 is not None:
-            loss = self.test(tx1, tx2)
+        if t_x is not None and t_y is not None:
+            loss = self.test(t_x, t_tfidf, t_y)
             self.logger.info('loss on test data: {:.4f}'.format(loss))
 
-    def predict(self, X_test):
-        X_data_new = np.array([list(range(X_test.shape[1]))]*X_test.shape[0])
-        tfidf = torch.from_numpy(X_test)
-        tfidf = tfidf[:, :, None].type('torch.FloatTensor').to(self.device)
-        bow = torch.from_numpy(X_data_new).to(self.device)
+    def test(self, x, tfidf, y):
+        x = x.to(self.device)
+        tfidf = tfidf.to(self.device)
+        y = y.to(self.device)
+        with torch.no_grad():
+            self.model.eval()
+            data_size = x.shape[0]
+            batch_idxs = list(BatchSampler(SequentialSampler(
+                range(data_size)), batch_size=self.batch_size, drop_last=False))
+            losses = []
+            for batch_idx in batch_idxs:
+                batch_x1 = x[batch_idx, :]
+                batch_tfidf = tfidf[batch_idx]
+                batch_y = y[batch_idx]
+                x_hidden, y_hidden, y_predicted = self.model(
+                    batch_x1, batch_tfidf, batch_y)
+                loss = self.loss(x_hidden, y_hidden,
+                                 y_predicted, batch_y)
+                losses.append(loss.item())
+        return np.mean(losses)
+
+    def predict(self, X_test, tfidf):
+        tfidf = tfidf.to(self.device)
+        bow = X_test.to(self.device)
         with torch.no_grad():
             self.model.eval()
             data_size = X_test.shape[0]
@@ -154,14 +180,15 @@ class Solver():
                 batch_tfidf = tfidf[batch_idx]
                 o1 = self.model.predict(batch_x1, batch_tfidf)
                 outputs1.append(o1)
-        outputs = torch.cat(outputs1, dim=0).cpu().numpy(),
+        outputs = torch.cat(outputs1, dim=0)
         return outputs
 
 
 if __name__ == '__main__':
     ############
     # Parameters Section
-
+    mpl_logger = logging.getLogger("matplotlib")
+    mpl_logger.setLevel(logging.INFO)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print("device", device)
     print("Using", torch.cuda.device_count(), "GPUs")
@@ -177,7 +204,9 @@ if __name__ == '__main__':
     # the parameters for training the network
     params = dict()
     params['learning_rate'] = 1e-3
-    params['epoch_num'] = 3
+    params['epoch_num'] = 100
+    if(len(sys.argv) > 1):
+        params['epoch_num'] = int(sys.argv[1])
     params['batch_size'] = 1024
     params['reg_par'] = 1e-5
 
@@ -196,10 +225,19 @@ if __name__ == '__main__':
     # Each view is stored in a gzip file separately. They will get downloaded the first time the code gets executed.
     # Datasets get stored under the datasets folder of user's Keras folder
     # normally under [Home Folder]/.keras/datasets/
+    # X_train, Y_train = load_data(
+    #     "/home/praveen/Desktop/iiith-assignments/ExtremeClassification/mediamill/mediamill-train.arff")
+    # X_test, Y_test = load_data(
+    #     '/home/praveen/Desktop/iiith-assignments/ExtremeClassification/mediamill/mediamill-test.arff')
     X_train, Y_train = load_data(
-        "/home/praveen/Desktop/iiith-assignments/ExtremeClassification/mediamill/mediamill-train.arff")
+        "/home/praveen.balireddy/XML/datasets/mediamill/mediamill-train.arff")
     X_test, Y_test = load_data(
-        '/home/praveen/Desktop/iiith-assignments/ExtremeClassification/mediamill/mediamill-test.arff')
+        "/home/praveen.balireddy/XML/datasets/mediamill/mediamill-test.arff")
+    X_train, train_tfidf, Y_train = prepare_tensors_from_data(X_train, Y_train)
+    X_test, test_tfidf, Y_test = prepare_tensors_from_data(X_test, Y_test)
+
+    X_val, tfidf_val, Y_val, _, _, _ = split_train_val(
+        X_test, test_tfidf, Y_test)
     # Building, training, and producing the new features by DCCA
     model = AttentionModel(input_size=input_size, embedding_size=embedding_size,
                            attention_layer_size=attention_layer_size, encoder_layer_size=encoder_layer_size,
@@ -208,12 +246,22 @@ if __name__ == '__main__':
                      device=device, r1=r1, m=m, lamda=lamda).loss
     solver = Solver(model=model, loss=loss_func,
                     outdim_size=output_size, params=params, device=device)
-    solver.fit(X_train, Y_train, checkpoint_path=".")
-    y_pred = solver.predict(X_test)
-    print(np.unique(y_pred, return_counts=True))
+    check_path = "/home/praveen.balireddy/XML/checkpoints/checkpoint.model"
+    # check_path = "./checkpoint.model"
+    solver.fit(X_train, train_tfidf, Y_train,
+               X_val, tfidf_val, Y_val,
+               checkpoint=check_path)
+    y_pred = solver.predict(X_test, test_tfidf)
+    y_pred = to_numpy(y_pred)
+    Y_test = to_numpy(Y_test)
+    print("#########################")
     print("P@1: ", p_k(y_pred, Y_test, 1))
     print("P@3: ", p_k(y_pred, Y_test, 3))
     print("P@5: ", p_k(y_pred, Y_test, 5))
-    d = torch.load('checkpoint.model')
+    print("#########################")
+    print("n@1: ", n_k(y_pred, Y_test, 1))
+    print("n@3: ", n_k(y_pred, Y_test, 3))
+    print("n@5: ", n_k(y_pred, Y_test, 5))
+    d = torch.load(check_path)
     solver.model.load_state_dict(d['model_state_dict'])
     solver.model.parameters()
