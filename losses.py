@@ -42,7 +42,7 @@ class Loss():
         # print("ReconstrLoss",loss)
         return loss
 
-    def hiddenLoss(self, H1, H2):
+    def hidden_dcca(self, H1, H2):
         r1 = self.r1
         r2 = 1e-3
         eps = 1e-12
@@ -105,7 +105,7 @@ class Loss():
             # just the top self.outdim_size singular values are used
             U, V = torch.symeig(torch.matmul(
                 Tval.t(), Tval), eigenvectors=True)
-            # print("U",U)
+            print("U", U)
             U = torch.abs(U)
             # U = U[torch.gt(U, eps).nonzero()[:, 0]]
             U = U.topk(self.outdim_size)[0]
@@ -116,13 +116,13 @@ class Loss():
         # print("corr",-corr)
         return 100-corr
 
-    def hiddenLoss1(self, x_hidden, y_hidden):
+    def hiddenLoss(self, x_hidden, y_hidden):
         temp = torch.sum((x_hidden-y_hidden)**2)
         temp /= x_hidden.shape[0]
         return temp
 
     def loss(self, x_hidden, y_hidden, y_predicted, y_actual, print_flag=False):
-        loss_hidden = self.hiddenLoss1(x_hidden, y_hidden)
+        loss_hidden = self.hiddenLoss(x_hidden, y_hidden)
         loss_ae = self.reconstructingLoss(y_predicted, y_actual)
         if print_flag:
             print("Hidden loss = {0}, Reconstruction Loss = {1}".format(
@@ -130,7 +130,7 @@ class Loss():
         return (loss_hidden+self.lamda*loss_ae)
 
     def dccaLoss(self, x_hidden, y_hidden, y_predicted, y_actual, print_flag=False):
-        loss_hidden = self.hiddenLoss(x_hidden, y_hidden)
+        loss_hidden = self.hidden_dcca(x_hidden, y_hidden)
         loss_ae = self.reconstructingLoss(y_predicted, y_actual)
         if print_flag:
             print("Hidden loss = {0}, Reconstruction Loss = {1}".format(

@@ -1,24 +1,26 @@
-import sys
-from losses import Loss
-from model.net import AttentionModel
-import torch
-from torch import nn
-from torchsummary import summary
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-import pandas as pd
-from torch import optim
-import numpy as np
-from torchviz import make_dot
-from scipy.io.arff import loadarff
-import math
-import os
-import gzip
-import logging
-import time
-from utils import *
-from torch.utils.data import BatchSampler, SequentialSampler, RandomSampler
 import torch.nn as nn
+from torch.utils.data import BatchSampler, SequentialSampler, RandomSampler
+from utils import *
+import time
+import logging
+import gzip
+import os
+import math
+from scipy.io.arff import loadarff
+from torchviz import make_dot
+import numpy as np
+from torch import optim
+import pandas as pd
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from torchsummary import summary
+from torch import nn
+import torch
+from model.net import AttentionModel
+from losses import Loss
+import sys
 import matplotlib.pyplot as plt
+import matplotlib as mpl
+mpl.use('Agg')
 torch.manual_seed(1)
 
 try:
@@ -54,11 +56,12 @@ class Solver():
 
         self.logger.info(self.model)
         self.logger.info(self.optimizer)
+        self.start_epoch = 0
 
     def fit(self, X_train, tfidf, Y_train,
             v_x=None, v_tfidf=None, v_y=None,
             t_x=None, t_tfidf=None, t_y=None,
-            checkpoint=''):
+            checkpoint='', load_model=False):
         """
         x1, x2 are the vectors needs to be make correlated
         dim=[batch_size, feats]
@@ -78,8 +81,11 @@ class Solver():
             t_tfidf.to(self.device)
             t_y.to(self.device)
 
+        if(load_model):
+            self.start_epoch, loss = self.load_model(checkpoint)
+
         train_losses = []
-        for epoch in range(self.epoch_num):
+        while(self.start_epoch < self.epoch_num):
             epoch_start_time = time.time()
             self.model.train()
             batch_idxs = list(BatchSampler(RandomSampler(
@@ -109,32 +115,38 @@ class Solver():
                         best_val_loss = val_loss
                     elif val_loss < best_val_loss:
                         self.logger.info(
-                            "Epoch {:d}: val_loss improved from {:.4f} to {:.4f}, saving model to {}".format(epoch + 1, best_val_loss, val_loss, checkpoint))
+                            "Epoch {:d}: val_loss improved from {:.4f} to {:.4f}, saving model to {}".format(self.start_epoch + 1, best_val_loss, val_loss, checkpoint))
                         best_val_loss = val_loss
                         torch.save({
-                            'epoch': epoch,
+                            'epoch': self.start_epoch,
                             'model_state_dict': self.model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
                             'loss': loss,
                         }, checkpoint)
                     else:
                         self.logger.info("Epoch {:d}: val_loss did not improve from {:.4f}".format(
-                            epoch + 1, best_val_loss))
+                            self.start_epoch + 1, best_val_loss))
             else:
                 torch.save({
-                    'epoch': epoch,
+                    'epoch': self.start_epoch,
                     'model_state_dict': self.model.state_dict(),
                     'optimizer_state_dict': self.optimizer.state_dict(),
                     'loss': loss,
                 }, checkpoint)
             epoch_time = time.time() - epoch_start_time
             self.logger.info(info_string.format(
-                epoch + 1, self.epoch_num, epoch_time, train_loss))
+                self.start_epoch + 1, self.epoch_num, epoch_time, train_loss))
+            self.start_epoch += 1
 
         fig = plt.figure()
-        plt.plot(np.array(train_losses), 'r')
-        plt.savefig('loss.png')
-        plt.close(fig)
+        ax = fig.add_subplot(111)
+        ax.plot(np.array(train_losses), 'r')
+        fig.savefig('loss.png')
+
+        # fig = plt.figure()
+        # plt.plot(np.array(train_losses), 'r')
+        # plt.savefig('loss.png')
+        # plt.close(fig)
         checkpoint_ = torch.load(checkpoint)['model_state_dict']
         self.model.load_state_dict(checkpoint_)
         if v_x is not None and v_y is not None:
@@ -166,6 +178,15 @@ class Solver():
                 losses.append(loss.item())
         return np.mean(losses)
 
+    def load_model(self, path):
+        print("=> loading checkpoint '{}'".format(path))
+        checkpoint_ = torch.load(path)
+        self.model.load_state_dict(checkpoint_['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint_['optimizer_state_dict'])
+        start_epoch = int(checkpoint_['epoch'])+1
+        loss = checkpoint_['loss']
+        return start_epoch, loss
+
     def predict(self, X_test, tfidf):
         tfidf = tfidf.to(self.device)
         bow = X_test.to(self.device)
@@ -187,8 +208,8 @@ class Solver():
 if __name__ == '__main__':
     ############
     # Parameters Section
-    mpl_logger = logging.getLogger("matplotlib")
-    mpl_logger.setLevel(logging.INFO)
+    # mpl_logger = logging.getLogger("matplotlib")
+    # mpl_logger.setLevel(logging.INFO)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print("device", device)
     print("Using", torch.cuda.device_count(), "GPUs")
@@ -199,7 +220,7 @@ if __name__ == '__main__':
     embedding_size = 100
     attention_layer_size = 50
     encoder_layer_size = 120
-    hidden_layer_size = 100
+    hidden_layer_size = 80
 
     # the parameters for training the network
     params = dict()
@@ -242,15 +263,15 @@ if __name__ == '__main__':
     model = AttentionModel(input_size=input_size, embedding_size=embedding_size,
                            attention_layer_size=attention_layer_size, encoder_layer_size=encoder_layer_size,
                            hidden_layer_size=hidden_layer_size, output_size=output_size)
-    loss_func = Loss(outdim_size=output_size, use_all_singular_values=use_all_singular_values,
-                     device=device, r1=r1, m=m, lamda=lamda).loss
+    loss_func = Loss(outdim_size=hidden_layer_size, use_all_singular_values=use_all_singular_values,
+                     device=device, r1=r1, m=m, lamda=lamda).dccaLoss
     solver = Solver(model=model, loss=loss_func,
                     outdim_size=output_size, params=params, device=device)
     check_path = "/home/praveen.balireddy/XML/checkpoints/checkpoint.model"
     # check_path = "./checkpoint.model"
     solver.fit(X_train, train_tfidf, Y_train,
                X_val, tfidf_val, Y_val,
-               checkpoint=check_path)
+               checkpoint=check_path, load_model=False)
     y_pred = solver.predict(X_test, test_tfidf)
     y_pred = to_numpy(y_pred)
     Y_test = to_numpy(Y_test)

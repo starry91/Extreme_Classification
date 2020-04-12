@@ -1,0 +1,13 @@
+device cuda
+Using 1 GPUs
+loading data ...
+loading data ...
+=> loading checkpoint '/home/praveen.balireddy/XML/checkpoints/checkpoint.model'
+#########################
+P@1:  0.7997522069072325
+P@3:  0.6396933560477273
+P@5:  0.45161839863713227
+#########################
+n@1:  0.7997522069072325
+n@3:  0.7135199765776861
+n@5:  0.646956060974689
