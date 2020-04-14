@@ -66,20 +66,20 @@ class Solver():
         x1, x2 are the vectors needs to be make correlated
         dim=[batch_size, feats]
         """
-        X_train = X_train.to(self.device)
-        Y_train = Y_train.to(self.device)
-        tfidf = tfidf.to(self.device)
+        X_train = X_train
+        Y_train = Y_train
+        tfidf = tfidf
         data_size = X_train.size(0)
 
         if v_x is not None and v_y is not None:
             best_val_loss = None
-            v_x.to(self.device)
-            v_tfidf.to(self.device)
-            v_y.to(self.device)
+            v_x
+            v_tfidf
+            v_y
         if t_x is not None and t_y is not None:
-            t_x.to(self.device)
-            t_tfidf.to(self.device)
-            t_y.to(self.device)
+            t_x
+            t_tfidf
+            t_y
 
         if(load_model):
             self.start_epoch, loss = self.load_model(checkpoint)
@@ -93,9 +93,9 @@ class Solver():
 
             for batch_idx in batch_idxs:
                 self.optimizer.zero_grad()
-                batch_tfidf = tfidf[batch_idx]
-                batch_X_train = X_train[batch_idx, :]
-                batch_Y_train = Y_train[batch_idx, :]
+                batch_tfidf = tfidf[batch_idx].to(self.device)
+                batch_X_train = X_train[batch_idx, :].to(self.device)
+                batch_Y_train = Y_train[batch_idx, :].to(self.device)
                 x_hidden, y_hidden, y_predicted = self.model(
                     batch_X_train, batch_tfidf, batch_Y_train)
                 loss = self.loss(x_hidden, y_hidden,
@@ -158,9 +158,9 @@ class Solver():
             self.logger.info('loss on test data: {:.4f}'.format(loss))
 
     def test(self, x, tfidf, y):
-        x = x.to(self.device)
-        tfidf = tfidf.to(self.device)
-        y = y.to(self.device)
+        x = x
+        tfidf = tfidf
+        y = y
         with torch.no_grad():
             self.model.eval()
             data_size = x.shape[0]
@@ -168,9 +168,9 @@ class Solver():
                 range(data_size)), batch_size=self.batch_size, drop_last=False))
             losses = []
             for batch_idx in batch_idxs:
-                batch_x1 = x[batch_idx, :]
-                batch_tfidf = tfidf[batch_idx]
-                batch_y = y[batch_idx]
+                batch_x1 = x[batch_idx, :].to(self.device)
+                batch_tfidf = tfidf[batch_idx].to(self.device)
+                batch_y = y[batch_idx].to(self.device)
                 x_hidden, y_hidden, y_predicted = self.model(
                     batch_x1, batch_tfidf, batch_y)
                 loss = self.loss(x_hidden, y_hidden,
@@ -188,8 +188,8 @@ class Solver():
         return start_epoch, loss
 
     def predict(self, X_test, tfidf):
-        tfidf = tfidf.to(self.device)
-        bow = X_test.to(self.device)
+        tfidf = tfidf
+        bow = X_test
         with torch.no_grad():
             self.model.eval()
             data_size = X_test.shape[0]
@@ -197,8 +197,8 @@ class Solver():
                 range(data_size)), batch_size=self.batch_size, drop_last=False))
             outputs1 = []
             for batch_idx in batch_idxs:
-                batch_x1 = bow[batch_idx, :]
-                batch_tfidf = tfidf[batch_idx]
+                batch_x1 = bow[batch_idx, :].to(device)
+                batch_tfidf = tfidf[batch_idx].to(device)
                 o1 = self.model.predict(batch_x1, batch_tfidf)
                 outputs1.append(o1)
         outputs = torch.cat(outputs1, dim=0)
@@ -215,12 +215,22 @@ if __name__ == '__main__':
     print("Using", torch.cuda.device_count(), "GPUs")
 
     # the size of the new space learned by the model (number of the new features)
-    input_size = 120
-    output_size = 101
+
+    ### For mediamill ##
+    # input_size = 120
+    # output_size = 101
+    # embedding_size = 100
+    # attention_layer_size = 50
+    # encoder_layer_size = 120
+    # hidden_layer_size = 80
+
+    ### For Eurlex ##
+    input_size = 5000
+    output_size = 3993
     embedding_size = 100
-    attention_layer_size = 50
-    encoder_layer_size = 120
-    hidden_layer_size = 80
+    attention_layer_size = 25
+    encoder_layer_size = 600
+    hidden_layer_size = 200
 
     # the parameters for training the network
     params = dict()
@@ -241,30 +251,39 @@ if __name__ == '__main__':
     use_all_singular_values = False
 
     # end of parameters section
-    ############
 
-    # Each view is stored in a gzip file separately. They will get downloaded the first time the code gets executed.
-    # Datasets get stored under the datasets folder of user's Keras folder
-    # normally under [Home Folder]/.keras/datasets/
+    ###########  Mediamill  ###########
     # X_train, Y_train = load_data(
-    #     "/home/praveen/Desktop/iiith-assignments/ExtremeClassification/mediamill/mediamill-train.arff")
+    #     path="/home/praveen/Desktop/iiith-assignments/ExtremeClassification/mediamill/mediamill-train.arff", isTxt=False)
     # X_test, Y_test = load_data(
-    #     '/home/praveen/Desktop/iiith-assignments/ExtremeClassification/mediamill/mediamill-test.arff')
+    #     path="/home/praveen/Desktop/iiith-assignments/ExtremeClassification/mediamill/mediamill-test.arff", isTxt=False)
+    # X_train, Y_train = load_data(
+    #     path="/home/praveen.balireddy/XML/datasets/mediamill/mediamill-train.arff", isTxt=False)
+    # X_test, Y_test = load_data(
+    #     path="/home/praveen.balireddy/XML/datasets/mediamill/mediamill-test.arff", isTxt=False)
+
+    ###########  Eurlex-4k  ###########
+    # X_train, Y_train = load_data(
+    #     path="/home/praveen/Desktop/iiith-assignments/ExtremeClassification/Eurlex/eurlex_train.txt", isTxt=True)
+    # X_test, Y_test = load_data(
+    #     path="/home/praveen/Desktop/iiith-assignments/ExtremeClassification/Eurlex/eurlex_test.txt", isTxt=True)
     X_train, Y_train = load_data(
-        "/home/praveen.balireddy/XML/datasets/mediamill/mediamill-train.arff")
+        path="/home/praveen.balireddy/XML/datasets/Eurlex/eurlex_train.txt", isTxt=True)
     X_test, Y_test = load_data(
-        "/home/praveen.balireddy/XML/datasets/mediamill/mediamill-test.arff")
+        path="/home/praveen.balireddy/XML/datasets/Eurlex/eurlex_test.txt", isTxt=True)
     X_train, train_tfidf, Y_train = prepare_tensors_from_data(X_train, Y_train)
     X_test, test_tfidf, Y_test = prepare_tensors_from_data(X_test, Y_test)
 
+    ### Common code from here #########
     X_val, tfidf_val, Y_val, _, _, _ = split_train_val(
         X_test, test_tfidf, Y_test)
     # Building, training, and producing the new features by DCCA
     model = AttentionModel(input_size=input_size, embedding_size=embedding_size,
                            attention_layer_size=attention_layer_size, encoder_layer_size=encoder_layer_size,
-                           hidden_layer_size=hidden_layer_size, output_size=output_size)
+                           hidden_layer_size=hidden_layer_size, output_size=output_size).to(device)
+    # print(sum(p.numel() for p in model.parameters() if p.requires_grad))
     loss_func = Loss(outdim_size=hidden_layer_size, use_all_singular_values=use_all_singular_values,
-                     device=device, r1=r1, m=m, lamda=lamda).dccaLoss
+                     device=device, r1=r1, m=m, lamda=lamda).loss
     solver = Solver(model=model, loss=loss_func,
                     outdim_size=output_size, params=params, device=device)
     check_path = "/home/praveen.balireddy/XML/checkpoints/checkpoint.model"
