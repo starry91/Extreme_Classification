@@ -206,6 +206,9 @@ class Solver():
 
 
 if __name__ == '__main__':
+
+    # wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=0B3lPMIHmG6vGU0VTR1pCejFpWjg' -O Eurlex.zip
+
     ############
     # Parameters Section
     # mpl_logger = logging.getLogger("matplotlib")
@@ -217,20 +220,20 @@ if __name__ == '__main__':
     # the size of the new space learned by the model (number of the new features)
 
     ### For mediamill ##
-    # input_size = 120
-    # output_size = 101
-    # embedding_size = 100
-    # attention_layer_size = 50
-    # encoder_layer_size = 120
-    # hidden_layer_size = 80
+    input_size = 120
+    output_size = 101
+    embedding_size = 100
+    attention_layer_size = 50
+    encoder_layer_size = 120
+    hidden_layer_size = 80
 
     ### For Eurlex ##
-    input_size = 5000
-    output_size = 3993
-    embedding_size = 100
-    attention_layer_size = 25
-    encoder_layer_size = 600
-    hidden_layer_size = 200
+    # input_size = 5000
+    # output_size = 3993
+    # embedding_size = 100
+    # attention_layer_size = 25
+    # encoder_layer_size = 600
+    # hidden_layer_size = 200
 
     # the parameters for training the network
     params = dict()
@@ -244,8 +247,8 @@ if __name__ == '__main__':
     # the regularization parameter of the network
     # seems necessary to avoid the gradient exploding especially when non-saturating activations are used
     r1 = 5e-7
-    m = 0.8
-    lamda = 10
+    m = 0.6
+    lamda = 1
     # specifies if all the singular values should get used to calculate the correlation or just the top outdim_size ones
     # if one option does not work for a network or dataset, try the other one
     use_all_singular_values = False
@@ -253,15 +256,16 @@ if __name__ == '__main__':
     # end of parameters section
 
     ###########  Mediamill  ###########
-    # X_train, Y_train = load_data(
-    #     path="/home/praveen/Desktop/iiith-assignments/ExtremeClassification/mediamill/mediamill-train.arff", isTxt=False)
-    # X_test, Y_test = load_data(
-    #     path="/home/praveen/Desktop/iiith-assignments/ExtremeClassification/mediamill/mediamill-test.arff", isTxt=False)
-    # X_train, Y_train = load_data(
-    #     path="/home/praveen.balireddy/XML/datasets/mediamill/mediamill-train.arff", isTxt=False)
-    # X_test, Y_test = load_data(
-    #     path="/home/praveen.balireddy/XML/datasets/mediamill/mediamill-test.arff", isTxt=False)
-
+    # X_train, Y_train, X_test, Y_test = load_small_data(
+    #     full_data_path="/home/praveen/Desktop/iiith-assignments/ExtremeClassification/Mediamill/Mediamill_data.txt",
+    #     tr_path="/home/praveen/Desktop/iiith-assignments/ExtremeClassification/Mediamill/mediamill_trSplit.txt",
+    #     tst_path="/home/praveen/Desktop/iiith-assignments/ExtremeClassification/Mediamill/mediamill_trSplit.txt"
+    # )
+    # X_train, Y_train, X_test, Y_test = load_small_data(
+    #     full_data_path="/home/praveen.balireddy/XML/datasets/Mediamill/Mediamill_data.txt",
+    #     tr_path="/home/praveen.balireddy/XML/datasets/Mediamill/mediamill_trSplit.txt",
+    #     tst_path="/home/praveen.balireddy/XML/datasets/Mediamill/mediamill_trSplit.txt"
+    # )
     ###########  Eurlex-4k  ###########
     # X_train, Y_train = load_data(
     #     path="/home/praveen/Desktop/iiith-assignments/ExtremeClassification/Eurlex/eurlex_train.txt", isTxt=True)
@@ -271,10 +275,10 @@ if __name__ == '__main__':
         path="/home/praveen.balireddy/XML/datasets/Eurlex/eurlex_train.txt", isTxt=True)
     X_test, Y_test = load_data(
         path="/home/praveen.balireddy/XML/datasets/Eurlex/eurlex_test.txt", isTxt=True)
-    X_train, train_tfidf, Y_train = prepare_tensors_from_data(X_train, Y_train)
-    X_test, test_tfidf, Y_test = prepare_tensors_from_data(X_test, Y_test)
 
     ### Common code from here #########
+    X_train, train_tfidf, Y_train = prepare_tensors_from_data(X_train, Y_train)
+    X_test, test_tfidf, Y_test = prepare_tensors_from_data(X_test, Y_test)
     X_val, tfidf_val, Y_val, _, _, _ = split_train_val(
         X_test, test_tfidf, Y_test)
     # Building, training, and producing the new features by DCCA

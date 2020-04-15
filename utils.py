@@ -50,7 +50,9 @@ def n_k(y_predicted, y_actual, k):
     return res/y_predicted.shape[0]
 
 
-def get_matrix_from_txt(path):
+def get_matrix_from_txt(path, isSparse):
+    if(isSparse):
+        labels = data_utils.read_sparse_file('trn_X_Xf.txt', force_header=True)
     features, labels, num_samples, num_features, num_labels = data_utils.read_data(
         path)
     return features.toarray(), labels.toarray().astype(int)
@@ -69,14 +71,33 @@ def get_data(path):
     return X_data.values, Y_data.values
 
 
-def load_data(path, isTxt=False):
+def load_small_data(full_data_path, tr_path, tst_path):
+    features, labels, num_samples, num_features, num_labels = data_utils.read_data(
+        full_data_path)
+    labels = labels.toarray()
+    features = features.toarray()
+    dum_feature = np.zeros((1, num_features))
+    dum_label = np.zeros((1, num_labels))
+    features = np.concatenate((dum_feature, features), axis=0)
+    labels = np.concatenate((dum_label, labels), axis=0)
+    train_indices = pd.read_csv(tr_path, sep=" ", header=None)
+    tr_indices = train_indices.to_numpy()
+    train_X = features[tr_indices[:, 0]]
+    train_Y = labels[tr_indices[:, 0]]
+    test_indices = pd.read_csv(tst_path, sep=" ", header=None)
+    tst_indices = train_indices.to_numpy()
+    test_X = features[tr_indices[:, 0]]
+    test_Y = labels[tr_indices[:, 0]]
+    return train_X, train_Y, test_X, test_Y
+
+
+def load_data(path, isTxt=False, isSparse=False):
     """loads the data and converts to numpy arrays"""
     print('loading data ...')
-
     if(not isTxt):
         X_train, Y_train = get_data(path)
     else:
-        X_train, Y_train = get_matrix_from_txt(path)
+        X_train, Y_train = get_matrix_from_txt(path, isSparse)
     return X_train, Y_train
 
 

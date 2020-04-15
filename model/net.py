@@ -35,7 +35,7 @@ class FeatureEmbedding(nn.Module):
             self.attentionfc2(attention_embedding))
         word_embedding = attention_embedding * word_embedding
         word_embedding = word_embedding.mean(1)
-        x_hidden = torch.tanh(self.featurefc1(word_embedding))
+        x_hidden = torch.relu(self.featurefc1(word_embedding))
         return x_hidden
 
 
@@ -47,7 +47,7 @@ class Encoder(nn.Module):
 
     def forward(self, labels):
         y_hidden = torch.relu(self.encoderfc1(labels))
-        y_hidden = torch.tanh(self.encoderfc2(y_hidden))
+        y_hidden = torch.relu(self.encoderfc2(y_hidden))
         return y_hidden
 
 
@@ -58,8 +58,8 @@ class Decoder(nn.Module):
         self.decoderfc2 = nn.Linear(encoder_layer_size, output_size)
 
     def forward(self, y_hidden):
-        y_predicted = torch.tanh(self.decoderfc1(y_hidden))
-        y_predicted = torch.relu(self.decoderfc2(y_predicted))
+        y_predicted = torch.relu(self.decoderfc1(y_hidden))
+        y_predicted = torch.sigmoid(self.decoderfc2(y_predicted))
         return y_predicted
 
 
