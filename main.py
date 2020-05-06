@@ -290,7 +290,7 @@ if __name__ == '__main__':
     # Building, training, and producing the new features by DCCA
     model = AttentionModel(input_size=input_size, embedding_size=embedding_size,
                            attention_layer_size=attention_layer_size, encoder_layer_size=encoder_layer_size,
-                           hidden_layer_size=hidden_layer_size, output_size=output_size).to(device)
+                           hidden_layer_size=hidden_layer_size, output_size=output_size, embedding_weight_matrix=embedding_weights).to(device)
     # print(sum(p.numel() for p in model.parameters() if p.requires_grad))
     loss_func = Loss(outdim_size=hidden_layer_size, use_all_singular_values=use_all_singular_values,
                      device=device, r1=r1, m=m, lamda=lamda).loss
