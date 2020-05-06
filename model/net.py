@@ -5,7 +5,7 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 import pandas as pd
 from torch import optim
 import numpy as np
-from torchviz import make_dot
+# from torchviz import make_dot
 from scipy.io.arff import loadarff
 import math
 import os
@@ -16,9 +16,11 @@ np.random.seed(1)
 
 
 class FeatureEmbedding(nn.Module):
-    def __init__(self, input_size, embedding_size, attention_layer_size, hidden_layer_size):
+    def __init__(self, input_size, embedding_size, attention_layer_size, hidden_layer_size, weight_matrix):
         super(FeatureEmbedding, self).__init__()
         self.embedding = nn.Embedding(input_size, embedding_size)
+        if weight_matrix is not None:
+            self.embedding.load_state_dict({'weight': weight_matrix})
         # Attention Module
         self.attentionfc1 = nn.Linear(embedding_size,  attention_layer_size)
         self.attentionfc2 = nn.Linear(attention_layer_size, embedding_size)
@@ -64,10 +66,10 @@ class Decoder(nn.Module):
 
 
 class AttentionModel(nn.Module):
-    def __init__(self, input_size, embedding_size, attention_layer_size, encoder_layer_size, hidden_layer_size, output_size):
+    def __init__(self, input_size, embedding_size, attention_layer_size, encoder_layer_size, hidden_layer_size, output_size, weightMatrix = None):
         super(AttentionModel, self).__init__()
         self.featureEmbedding = FeatureEmbedding(
-            input_size, embedding_size, attention_layer_size, hidden_layer_size)
+            input_size, embedding_size, attention_layer_size, hidden_layer_size, weightMatrix)
         self.encoder = Encoder(
             output_size, encoder_layer_size, hidden_layer_size)
         self.decoder = Decoder(

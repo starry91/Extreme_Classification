@@ -281,6 +281,12 @@ if __name__ == '__main__':
     X_test, test_tfidf, Y_test = prepare_tensors_from_data(X_test, Y_test)
     X_val, tfidf_val, Y_val, _, _, _ = split_train_val(
         X_test, test_tfidf, Y_test)
+
+    embedding_weights = None
+    ### loading weight matrix for embedding layer
+    embedding_path = "/home/praveen.balireddy/XML/data/embedding_weights_eurlex.csv"
+    embedding_weights = np.loadtxt(open(embedding_path, "rb"), delimiter=",", skiprows=1)
+    embedding_weights = torch.from_numpy(embedding_weights)
     # Building, training, and producing the new features by DCCA
     model = AttentionModel(input_size=input_size, embedding_size=embedding_size,
                            attention_layer_size=attention_layer_size, encoder_layer_size=encoder_layer_size,
